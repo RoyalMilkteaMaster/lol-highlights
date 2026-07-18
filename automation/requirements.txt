@@ -1,0 +1,24 @@
+# ── 必裝（第一版主流程使用）────────────────────────────────────────────
+pymysql>=1.1.0          # MySQL 連線
+cryptography>=41.0.0    # PyMySQL 對 MySQL 8 caching_sha2_password 認證的必要相依
+requests>=2.31.0        # HTTP（lolesports JSON API、Bilibili room info API）
+python-dotenv>=1.0.0    # 從 .env 讀帳密
+pyyaml>=6.0.1           # 讀 web_scraper/config.yaml
+
+# ── Phase 49：直播 URL 取得 ──────────────────────────────────────────────
+google-api-python-client>=2.150.0  # YouTube Data API v3
+yt-dlp>=2024.0.0                   # YouTube/Bilibili fallback + --download 用
+
+# ── Phase 49-2：自動錄影 + 排程 ──────────────────────────────────────────
+streamlink>=8.0.0                  # 直播側錄（pipe 給 ffmpeg）
+apscheduler>=3.10.0                # 常駐排程進程
+ntplib>=0.4.0                      # NTP 時間漂移檢查（warn-only）
+psutil>=5.9.0                      # 查 pid 是否還活著（stale lock 清理用）
+tenacity>=9.0.0                    # timeline / Hupu request retry
+winotify>=1.1.0                    # Windows cookie expiry notification
+
+# ── 保險（被擋 IP 時 fallback 用，第一版不啟用）──────────────────────────
+beautifulsoup4>=4.12.0  # HTML 解析（若改用 Leaguepedia / 動態頁面）
+selenium>=4.15.0        # 路線 C：模擬瀏覽器
+webdriver-manager>=4.0.0  # 自動下載 ChromeDriver
+fake-useragent>=1.5.0   # 路線 B：被擋時切換隨機 UA

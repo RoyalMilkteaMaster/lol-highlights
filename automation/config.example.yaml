@@ -1,0 +1,136 @@
+# Copy to automation/config.yaml before running automation.
+# Credentials and machine-specific paths belong in the root .env file.
+
+leagues:
+  LCK: 1
+  LPL: 2
+  LEC: 3
+  LCS: 4
+  LCP: 5
+  MSI: 10
+  WORLDS: 11
+  "FIRST STAND": 12
+
+fetch:
+  strategy: "requests"
+  fallback_after_failures: 3
+  use_random_ua: false
+  request_interval_sec: 0.8
+
+youtube:
+  channels:
+    - league: LCK
+      channel_id: "UC5Fms2Bl_HM6DPYgyL5DOyg"
+      name: LCKCarry
+      lang: zh
+      priority: 1
+      timezone: Asia/Seoul
+    - league: LCK
+      channel_id: "UCKVlixycWmapnGQ_wht4cHQ"
+      name: LCKglobal
+      lang: en
+      priority: 2
+      timezone: Asia/Seoul
+    - league: LCP
+      channel_id: "UCYfC038eP_cm9WNo5Cv-tBg"
+      name: LoLEsportsTW
+      lang: zh
+      priority: 1
+      timezone: Asia/Taipei
+
+bilibili:
+  rooms:
+    - room_id: 6
+      league: LPL
+      timezone: Asia/Shanghai
+      title_keywords: [LPL, 英雄联盟, 英雄聯盟, 联赛, 联盟, 春季赛, 夏季赛, 季后赛, 季後賽]
+
+automation_window:
+  enabled: false
+  timezone: "Asia/Taipei"
+  days: [mon, tue, wed, thu, fri, sat, sun]
+  start: "00:00"
+  end: "23:59"
+
+recording:
+  estimated_hours_per_series: 2.0
+  extra_buffer_hours: 1.0
+  max_duration_hr: 6.0
+  min_valid_duration_sec: 300
+  max_restarts: 5
+  restart_recovery_grace_sec: 30
+  youtube:
+    primary: streamlink
+    fallback: yt-dlp
+  bilibili:
+    primary: streamlink
+    fallback: none
+
+clip_worker:
+  main_timeout_hours: 3
+
+live_split:
+  poll_interval_sec: 300
+  min_ts_duration_sec: 360
+  min_new_range_sec: 60
+  ts_stable_age_sec: 2
+  stride_sec: 7.5
+  lead_in_sec: 30
+  bp_confirm_duration_sec: 30
+  bp_phase_min_duration_sec: 1200
+  search_end_overdue_sec: 2700
+  end_signal_confirm_sec: 15
+  cooldown_duration_sec: 300
+  end_buffer_sec: 15
+  device: null
+
+scheduler:
+  hours_back_for_recovery: 3
+  schedule_scrape_at: "09:00"
+  schedule_scrape_timezone: "Asia/Taipei"
+  schedule_scrape_leagues: "LCK,LCP,LPL,LEC,LCS,WORLDS,MSI"
+  schedule_scrape_days_ahead: 14
+  schedule_scrape_days_back: 1
+  find_live_at: "09:30"
+  find_live_timezone: "Asia/Taipei"
+  find_live_leagues: "LCK,LCP"
+  find_live_pre_match_retry_hours: [3, 0.5]
+  find_live_alert_after_minutes: 30
+  find_live_check_hours_ahead: 24
+  lpl_check_days_ahead: 7
+  lpl_post_match_offset_minutes: 80
+  lpl_schedule_lookback_days: 2
+  lpl_retry_lookback_days: 2
+  lpl_progressive_anchor_minutes: 15
+  lpl_progressive_check_interval_min: 5
+  lpl_retry_interval_minutes: 5
+  lpl_max_retries: 12
+  lpl_inter_part_sleep_min_sec: 10
+  lpl_inter_part_sleep_max_sec: 40
+  lpl_consecutive_fail_limit: 2
+  lpl_part_min_duration_sec: 1800
+  lpl_bilibili_user_uid: 50329118
+  lpl_finder_max_videos: 20
+  lpl_cookies_from_browser: "firefox"
+  lpl_cookies_file: null
+  cookie_check_at: "10:00"
+  cookie_check_timezone: "Asia/Taipei"
+  cookie_alert_threshold_days: 7
+  schedule_recording_lead_minutes: 3
+  schedule_recording_hours_back: 6
+  schedule_recording_lookahead_hours: 48
+  schedule_recording_misfire_grace_sec: 3600
+
+# Cleanup is deliberately safe in the public example.
+cleanup:
+  enabled: false
+  dry_run: true
+  timezone: "Asia/Taipei"
+  daily_at: "03:00"
+  lol_vods_keep_days: 3
+  split_keep_days: 3
+  live_recordings_keep_days: 3
+  lol_games_vods_keep_days: 3
+  scan_keep_days: 14
+  finals_keep_days: 14
+  output_final_keep_days: 28

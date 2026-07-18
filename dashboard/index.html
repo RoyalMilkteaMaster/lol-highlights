@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>LoL Automation Monitor</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0f18;
+      --panel: #111927;
+      --panel-2: #162234;
+      --line: #26364d;
+      --text: #edf4ff;
+      --muted: #8fa3bd;
+      --blue: #56a8ff;
+      --green: #47d18c;
+      --amber: #ffbf69;
+      --red: #ff6b7a;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: radial-gradient(circle at 20% 0, #13223b 0, var(--bg) 35%); color: var(--text); font: 14px/1.5 Inter, "Segoe UI", sans-serif; }
+    main { width: min(1500px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 56px; }
+    header { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: 22px; }
+    h1 { margin: 0; font-size: clamp(24px, 4vw, 36px); letter-spacing: -.03em; }
+    h2 { margin: 0 0 14px; font-size: 16px; }
+    p { margin: 4px 0 0; color: var(--muted); }
+    .badge, .status { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; white-space: nowrap; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .ok .dot, .dot.ok { background: var(--green); box-shadow: 0 0 12px #47d18c88; }
+    .warn .dot, .dot.warn { background: var(--amber); }
+    .error .dot, .dot.error { background: var(--red); }
+    .grid { display: grid; gap: 14px; }
+    .metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .two { grid-template-columns: minmax(280px, .9fr) minmax(420px, 2fr); margin-top: 14px; }
+    .panel, .metric { background: linear-gradient(145deg, #152033ee, #0f1724ee); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 14px 35px #0005; }
+    .panel { padding: 18px; overflow: hidden; }
+    .metric { padding: 16px; min-height: 106px; }
+    .metric .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+    .metric .value { margin-top: 8px; font-size: 28px; font-weight: 750; }
+    .metric .detail { color: var(--muted); font-size: 12px; }
+    .policy { display: grid; gap: 10px; }
+    .policy strong { font-size: 22px; }
+    .kv { display: grid; grid-template-columns: 95px 1fr; gap: 7px 12px; color: var(--muted); }
+    .kv span:nth-child(even) { color: var(--text); overflow-wrap: anywhere; }
+    .alerts { display: grid; gap: 8px; max-height: 220px; overflow: auto; }
+    .alert { border-left: 3px solid var(--amber); background: #ffbf6910; padding: 9px 11px; border-radius: 6px; overflow-wrap: anywhere; }
+    .alert.error { border-color: var(--red); background: #ff6b7a10; }
+    .empty { color: var(--muted); padding: 12px 0; }
+    .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+    table { width: 100%; border-collapse: collapse; min-width: 760px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #26364d99; vertical-align: top; }
+    th { position: sticky; top: 0; background: #172235; color: var(--muted); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+    tr:last-child td { border-bottom: 0; }
+    .muted { color: var(--muted); }
+    .mono { font-family: Consolas, "SFMono-Regular", monospace; }
+    .section { margin-top: 14px; }
+    .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    select, button { border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--text); padding: 8px 10px; }
+    button { cursor: pointer; }
+    button:hover { border-color: var(--blue); }
+    pre { margin: 0; max-height: 360px; overflow: auto; padding: 14px; border-radius: 10px; background: #070b12; border: 1px solid var(--line); color: #bdcbe0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    code { color: #b9d8ff; }
+    .commands { margin-top: 14px; color: var(--muted); font-size: 12px; }
+    .commands code { display: block; margin-top: 5px; }
+    @media (max-width: 950px) { .metrics { grid-template-columns: repeat(2, 1fr); } .two { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) { main { width: min(100% - 20px, 1500px); padding-top: 18px; } header { align-items: start; flex-direction: column; } .metrics { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>LoL Automation Monitor</h1>
+      <p>唯讀監控，頁面可見時每 5 秒更新一次。</p>
+    </div>
+    <div id="connection" class="badge"><span class="dot"></span><span>連線中</span></div>
+  </header>
+
+  <section class="grid metrics" aria-label="摘要">
+    <article class="metric"><div class="label">Automation</div><div id="policyValue" class="value">--</div><div id="policyDetail" class="detail">--</div></article>
+    <article class="metric"><div class="label">Workers</div><div id="workersValue" class="value">--</div><div class="detail">90 秒內視為健康</div></article>
+    <article class="metric"><div class="label">Active Broadcasts</div><div id="broadcastsValue" class="value">--</div><div class="detail">錄影、合併或收尾中</div></article>
+    <article class="metric"><div class="label">Clip Queue</div><div id="jobsValue" class="value">--</div><div id="alertsValue" class="detail">--</div></article>
+  </section>
+
+  <section class="grid two">
+    <article class="panel">
+      <h2>工作時段</h2>
+      <div class="policy">
+        <strong id="policyState">--</strong>
+        <div class="kv">
+          <span>來源</span><span id="policySource">--</span>
+          <span>原因</span><span id="policyReason">--</span>
+          <span>排程</span><span id="policySchedule">--</span>
+          <span>下次切換</span><span id="policyNext">--</span>
+          <span>時區</span><span id="policyTimezone">--</span>
+        </div>
+      </div>
+      <div class="commands">
+        控制入口在 automation CLI，dashboard 不寫檔、不寫 DB：
+        <code>python -m automation.run --pause-system</code>
+        <code>python -m automation.run --pause-until 2026-07-18T22:00</code>
+        <code>python -m automation.run --resume-system</code>
+        <code>固定時段：automation/config.yaml 的 automation_window</code>
+      </div>
+    </article>
+    <article class="panel">
+      <h2>需要注意</h2>
+      <div id="alerts" class="alerts" aria-live="polite"><div class="empty">讀取中</div></div>
+    </article>
+  </section>
+
+  <section class="panel section">
+    <h2>Workers</h2>
+    <div class="table-wrap"><table><thead><tr><th>狀態</th><th>Worker</th><th>Heartbeat</th><th>PID</th><th>訊息</th></tr></thead><tbody id="workers"></tbody></table></div>
+  </section>
+
+  <section class="panel section">
+    <h2>Broadcasts</h2>
+    <div class="table-wrap"><table><thead><tr><th>ID</th><th>賽事</th><th>開始時間</th><th>錄影</th><th>偵測</th><th>Games</th><th>錯誤</th></tr></thead><tbody id="broadcasts"></tbody></table></div>
+  </section>
+
+  <section class="panel section">
+    <h2>Clip jobs</h2>
+    <div class="table-wrap"><table><thead><tr><th>Job</th><th>Broadcast / Game</th><th>狀態</th><th>重試</th><th>開始</th><th>錯誤</th></tr></thead><tbody id="jobs"></tbody></table></div>
+  </section>
+
+  <section class="panel section">
+    <div class="toolbar">
+      <h2 style="margin:0">Logs</h2>
+      <label for="logName" class="muted">來源</label>
+      <select id="logName"><option>scheduler</option><option>clip_worker</option><option>live_split_worker</option><option>lpl_downloader</option><option>recorder</option><option>scraper</option></select>
+      <button id="refreshLog" type="button">重新整理</button>
+    </div>
+    <pre id="logContent" class="mono">按下重新整理讀取 log</pre>
+  </section>
+</main>
+
+<script>
+const byId = id => document.getElementById(id);
+const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+const localTime = value => value ? new Date(value).toLocaleString('zh-TW', {hour12:false}) : '--';
+const statusTone = status => ['failed','error','dead'].includes(status) ? 'error' : ['pending','post_recording','warn','delayed'].includes(status) ? 'warn' : 'ok';
+
+function statusCell(label, tone) {
+  return `<span class="status ${tone}"><span class="dot"></span>${escapeHtml(label || '--')}</span>`;
+}
+
+function render(state) {
+  const summary = state.summary;
+  const policy = state.automation;
+  byId('policyValue').textContent = policy.allowed ? '執行中' : '暫停';
+  byId('policyDetail').textContent = policy.reason || '--';
+  byId('workersValue').textContent = `${summary.workers_healthy} / ${summary.workers_total}`;
+  byId('broadcastsValue').textContent = summary.active_broadcasts;
+  byId('jobsValue').textContent = `${summary.running_jobs} running / ${summary.pending_jobs} pending`;
+  byId('alertsValue').textContent = `${summary.alerts} 個告警`;
+  byId('policyState').textContent = policy.allowed ? '允許接新工作' : '不接新工作';
+  byId('policyState').style.color = policy.allowed ? 'var(--green)' : 'var(--amber)';
+  byId('policySource').textContent = policy.source || '--';
+  byId('policyReason').textContent = policy.reason || '--';
+  byId('policySchedule').textContent = policy.schedule || (policy.window_enabled ? '--' : '固定時段未啟用');
+  byId('policyNext').textContent = localTime(policy.next_change_at);
+  byId('policyTimezone').textContent = policy.timezone || '--';
+
+  byId('alerts').innerHTML = state.alerts.length
+    ? state.alerts.map(a => `<div class="alert ${escapeHtml(a.level)}">${escapeHtml(a.message)}</div>`).join('')
+    : '<div class="empty">目前沒有告警</div>';
+
+  byId('workers').innerHTML = state.workers.length ? state.workers.map(w => {
+    const age = Number(w.age_sec ?? 999999);
+    const tone = age > 300 ? 'error' : age > 90 ? 'warn' : 'ok';
+    const label = age > 300 ? '停止' : age > 90 ? '延遲' : '正常';
+    return `<tr><td>${statusCell(label,tone)}</td><td>${escapeHtml(w.worker_name)}</td><td>${age}s<br><span class="muted">${localTime(w.last_heartbeat_at)}</span></td><td class="mono">${escapeHtml(w.pid)}</td><td>${escapeHtml(w.message || '--')}</td></tr>`;
+  }).join('') : '<tr><td colspan="5" class="empty">沒有 heartbeat 資料</td></tr>';
+
+  byId('broadcasts').innerHTML = state.broadcasts.length ? state.broadcasts.map(b => {
+    const recording = b.recording_status_v2 || '未開始';
+    const detector = b.detector_status || '未開始';
+    return `<tr><td class="mono">${b.broadcast_id}</td><td><strong>${escapeHtml(b.league_code || b.platform)}</strong><br><span class="muted">${escapeHtml(b.title || '--')}</span></td><td>${localTime(b.scheduled_start_utc)}</td><td>${statusCell(recording,statusTone(recording))}</td><td>${statusCell(detector,statusTone(detector))}<br><span class="muted">${escapeHtml(b.detector_phase || '')}</span></td><td>${b.cut_count}/${b.game_count}${b.failed_count ? `<br><span style="color:var(--red)">${b.failed_count} failed</span>` : ''}</td><td>${escapeHtml(b.error_message || '--')}</td></tr>`;
+  }).join('') : '<tr><td colspan="7" class="empty">最近 48 小時沒有 broadcast</td></tr>';
+
+  byId('jobs').innerHTML = state.jobs.length ? state.jobs.map(j => `<tr><td class="mono">${j.job_id}</td><td>${j.broadcast_id} / g${j.game_index}<br><span class="muted">${escapeHtml(j.team_a_code || '?')} vs ${escapeHtml(j.team_b_code || '?')}</span></td><td>${statusCell(j.status,statusTone(j.status))}</td><td>${j.retry_count ?? 0}</td><td>${localTime(j.started_at || j.enqueued_at)}</td><td>${escapeHtml(j.error_message || '--')}</td></tr>`).join('') : '<tr><td colspan="6" class="empty">沒有 clip job</td></tr>';
+}
+
+async function refreshState() {
+  if (document.visibilityState !== 'visible') return;
+  try {
+    const response = await fetch('/api/state', {cache:'no-store'});
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    render(await response.json());
+    byId('connection').className = 'badge ok';
+    byId('connection').innerHTML = '<span class="dot"></span><span>已連線</span>';
+  } catch (error) {
+    byId('connection').className = 'badge error';
+    byId('connection').innerHTML = `<span class="dot"></span><span>${escapeHtml(error.message)}</span>`;
+  }
+}
+
+async function refreshLog() {
+  const name = byId('logName').value;
+  byId('logContent').textContent = '讀取中...';
+  try {
+    const response = await fetch(`/api/logs?name=${encodeURIComponent(name)}`, {cache:'no-store'});
+    const data = await response.json();
+    byId('logContent').textContent = data.content || data.error || 'empty';
+    byId('logContent').scrollTop = byId('logContent').scrollHeight;
+  } catch (error) {
+    byId('logContent').textContent = error.message;
+  }
+}
+
+byId('refreshLog').addEventListener('click', refreshLog);
+byId('logName').addEventListener('change', refreshLog);
+document.addEventListener('visibilitychange', refreshState);
+refreshState();
+setInterval(refreshState, 5000);
+</script>
+</body>
+</html>

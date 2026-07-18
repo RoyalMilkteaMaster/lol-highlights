@@ -1,0 +1,60 @@
+# ── OAuth 憑證（不可上傳） ──────────────────────────
+client_secrets.json
+token.json
+
+# ── 個人設定（含 API Key） ───────────────────────────
+**/config.yaml
+.env
+
+# ── Python ──────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# ── 輸出與暫存 ───────────────────────────────────────
+output/
+runs/
+*.mp4
+*.mp3
+*.m4a
+
+# ── 訓練資料（體積大） ───────────────────────────────
+**/training/data/
+
+# ── Bilibili cookies（包含帳號資訊） ─────────────────
+**/*cookies*.txt
+
+# Local database snapshots; keep schema.sql and migrations tracked.
+deployment/db_dump_*.sql
+
+# Large model artifacts are published separately from Git history.
+*.pt
+*.onnx
+*.engine
+
+# ── OS 垃圾 ─────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── 一次性檔 + runtime 臨時產出（5/18 重構） ──────────
+_tmp/
+**/_tmp/
+!**/_tmp/.gitkeep
+
+# ── automation 子系統的 runtime 目錄 ─────────────────
+automation/cache/
+automation/logs/
+
+# ── lock 檔（scheduled_tasks.lock 等） ──────────────
+*.lock
+
+# ── Claude Code 私有設定 ────────────────────────────
+.claude/
+
+# Local editor state and internal project history.
+.vscode/
+reports/
+deployment/SETUP_NEWPC.md

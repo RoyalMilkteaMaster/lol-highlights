@@ -1,0 +1,46 @@
+# Copy to highlight/config.yaml before running the clipping pipeline.
+# Secrets and machine-specific data paths belong in the root .env file.
+
+# Leave empty when ffmpeg and ffprobe are available on PATH.
+ffmpeg_path: ""
+
+highlight:
+  music_volume: 0.10
+  original_volume: 1.0
+  loudnorm_enabled: true
+  loudnorm_i: -16
+  loudnorm_lra: 11
+  loudnorm_tp: -1.5
+
+music:
+  bp_music: ""
+  bp_duration: 45
+  bp_duration_min: 35
+  bp_duration_max: 65
+  bp_post_pick_wait: 42
+  bp_rms_offset: 750
+  bp_excitement_threshold: 1.5
+  bp_excitement_scale: 3.0
+  gameplay_music_dir: "assets/music"
+  gameplay_music_exclude: ["bp_intro.m4a", "background.m4a"]
+  gameplay_bpm_min: 120
+  gameplay_bpm_max: 130
+
+output:
+  ffmpeg_preset: "medium"
+  ffmpeg_crf: 18
+
+kill_feed:
+  model_path: "assets/yolo_models/kill_feed_yolo11s.pt"
+  kill_conf: 0.55
+  tower_conf: 0.3
+  sample_interval: 1.5
+  merge_window: 5.0
+  device: null
+
+end_graph:
+  model_path: "assets/yolo_models/end_graph_yolov8n.pt"
+  conf: 0.35
+  sample_interval: 3.0
+  persist_required: 2
+  device: null

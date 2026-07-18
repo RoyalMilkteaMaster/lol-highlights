@@ -1,0 +1,12 @@
+-r automation/requirements.txt
+
+Pillow>=10.3.0
+numpy>=1.26.0
+opencv-python>=4.10.0
+pandas>=2.2.0
+ultralytics>=8.2.0     # YOLOv8 視覺偵測
+paddleocr>=2.7.0       # 計分板數字 OCR（擊殺偵測）
+paddlepaddle>=2.6.0    # PaddleOCR 後端（CPU 版；GPU 版改用 paddlepaddle-gpu）
+librosa>=0.10.0        # BPM 偵測（music_library.py scan）
+soundfile>=0.12.0      # 音訊檔案元資料讀取（librosa 依賴）
+roboflow>=1.3.0        # training/upload_to_roboflow.py

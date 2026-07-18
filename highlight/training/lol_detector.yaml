@@ -1,0 +1,29 @@
+# YOLOv8 資料集設定
+# 訓練指令：python training/train.py
+# 資料結構：
+#   training/data/images/train/  ← 訓練圖片
+#   training/data/images/val/    ← 驗證圖片
+#   training/data/labels/train/  ← 訓練標籤 (.txt)
+#   training/data/labels/val/    ← 驗證標籤 (.txt)
+
+path: training/data
+train: images/train
+val: images/val
+
+# 類別數量與名稱（順序對應 label .txt 裡的 class_id，從 0 開始）
+# 注意：Roboflow export 為字母排序，class_id 順序必須與此一致
+# v5 更新：移除 post_game_stats / player_of_the_game / teamfight_recap / proview
+#        新增 blue_champ_hp_bar / red_champ_hp_bar（藍紅方選手血條 UI）
+nc: 11
+names:
+  0: baron_hp_bar        # 巴隆血量條 UI（畫面左側）
+  1: blue_champ_hp_bar   # 藍方選手血條 UI（畫面左側）
+  2: bp_ui               # BP 選角介面（消失點 = bp_end_time）
+  3: dragon_hp_bar       # 小龍 / 遠古巨龍血量條 UI（合併，畫面左側）
+  4: game_end_screen     # 比賽結束全屏畫面（VICTORY 或 DEFEAT）
+  5: herald_banner       # 諭示者召喚全域通知橫幅
+  6: herald_hp_bar       # 先知先驅血量條 UI（畫面左側）
+  7: nexus_explosion     # 主堡爆炸光效（比賽結束最早信號）
+  8: red_champ_hp_bar    # 紅方選手血條 UI（畫面右側）
+  9: replay              # REPLAY 浮水印 / 邊框
+  10: voidgrub_hp_bar    # 巢蟲血量條 UI

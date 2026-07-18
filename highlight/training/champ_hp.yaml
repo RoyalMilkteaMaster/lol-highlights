@@ -1,0 +1,13 @@
+# champ_hp.yaml — Champion HP Bar 偵測資料集設定
+# 訓練指令：python training/train_champ_hp.py
+
+path: C:/Users/lesli/Claude code/lol-highlights/training/champ_hp_data
+train: images/train
+val:   images/val
+
+nc: 4
+names:
+  0: blue_champ_hp_bar   # 藍方英雄血條（画面左側為多）
+  1: ignore_hp_bar       # 需忽略的血條（小兵、野怪）
+  2: red_champ_hp_bar    # 紅方英雄血條
+  3: voidgrub_hp_bar     # 巢蟲血條

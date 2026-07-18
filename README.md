@@ -2,7 +2,7 @@
 
 這是一個英雄聯盟職業比賽精華的自動剪輯系統。
 
-本專案從賽程與直播來源建立錄影工作，使用 YOLO 偵測 BP、擊殺與遊戲結束畫面，最後以 FFmpeg 輸出單場精華。專案包含手動剪輯、自動錄影、工作排程與唯讀監控儀表板。
+本專案從賽程與直播來源建立錄影工作，使用 YOLO 偵測 BP、擊殺與遊戲結束畫面，配合演算法得出比賽高光權重，最後以 FFmpeg 剪輯，輸出單場精華。專案包含手動剪輯、自動錄影、工作排程與唯讀監控儀表板。
 
 目前主要支援 Windows 10/11、Python 3.10、MySQL 8、NVIDIA CUDA GPU 與 FFmpeg。
 剪輯一場影片約耗時20~30分鐘
@@ -90,7 +90,8 @@ python -m automation.run --migrate
 
 四個 YOLO 權重不放進 Git history。檔名、大小與 SHA-256 位於 [`highlight/assets/yolo_models/README.md`](highlight/assets/yolo_models/README.md)。確認有再散布權後，從專案的 GitHub Release 下載並放進該目錄。
 
-音樂檔同樣不進 Git。若要使用 `highlight/assets/music_urls.txt` 建立本機音樂庫：
+音樂檔因避免版權問題，同樣不進 Git。
+若要將精華加上音樂，請自行至 `highlight/assets/music_urls.txt` 建立本機音樂庫：
 
 ```powershell
 python -m highlight.rendering.music_library download `
@@ -100,8 +101,6 @@ python -m highlight.rendering.music_library download `
 python -m highlight.rendering.music_library scan `
   --dir .\highlight\assets\music
 ```
-
-使用音樂前請自行確認每首曲目的授權與署名要求。
 
 ### 5. 驗證
 
@@ -168,7 +167,7 @@ python -m automation.run --pause-until "2026-07-18T22:00" --pause-reason "mainte
 python -m automation.run --resume-system
 ```
 
-## 本專案並不提供
+## 本專案並不包含yolo模型以及
 
 - `.env`
 - `**/config.yaml`
@@ -176,7 +175,7 @@ python -m automation.run --resume-system
 - `deployment/db_dump_*.sql`
 - YOLO `.pt` / `.onnx` / `.engine` 權重
 
-本專案內並不包含yolo模型權重
+
 
 ## 關於本專案
 

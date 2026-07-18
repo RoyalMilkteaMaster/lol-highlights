@@ -1,8 +1,11 @@
 # LoL 比賽精華自動剪輯系統
 
-從賽程與直播來源建立錄影工作，使用 YOLO 偵測 BP、擊殺與遊戲結束畫面，最後以 FFmpeg 輸出單場精華。專案包含手動剪輯、自動錄影、工作排程與唯讀監控儀表板。
+這是一個英雄聯盟職業比賽精華的自動剪輯系統。
 
-目前主要支援 Windows 10/11、Python 3.10、MySQL 8、NVIDIA CUDA GPU 與 FFmpeg。CPU 可以執行部分流程，但完整影片偵測會非常慢。
+本專案從賽程與直播來源建立錄影工作，使用 YOLO 偵測 BP、擊殺與遊戲結束畫面，最後以 FFmpeg 輸出單場精華。專案包含手動剪輯、自動錄影、工作排程與唯讀監控儀表板。
+
+目前主要支援 Windows 10/11、Python 3.10、MySQL 8、NVIDIA CUDA GPU 與 FFmpeg。
+剪輯一場影片約耗時20~30分鐘
 
 ## 架構
 
@@ -165,29 +168,19 @@ python -m automation.run --pause-until "2026-07-18T22:00" --pause-reason "mainte
 python -m automation.run --resume-system
 ```
 
-## 安全與本機檔案
-
-以下檔案不應提交：
+## 本專案並不提供
 
 - `.env`
 - `**/config.yaml`
 - browser cookies
 - `deployment/db_dump_*.sql`
 - YOLO `.pt` / `.onnx` / `.engine` 權重
-- VOD、輸出影片、log 與 runtime cache
 
-提交前至少執行：
+本專案內並不包含yolo模型權重
 
-```powershell
-git status --short
-git ls-files | Select-String -Pattern 'cookie|db_dump|\.env$|config\.yaml$|\.pt$'
-```
+## 關於本專案
 
-## 授權狀態
-
-此專案尚未加入程式碼 LICENSE，因此目前只適合 private repository。專案直接使用 Ultralytics YOLO；公開前應先決定採用相容的 AGPL-3.0 開源方式，或取得適用的 Ultralytics Enterprise License。
-
-這是非官方 fan project。LoL 與相關素材屬於其各自權利人；Riot Games 不贊助或背書本專案。公開或營利前請自行確認 Riot Games fan project policy、模型、音樂與直播來源的授權條件。
+這是非官方 fan project。若有侵權行為煩請告知。
 
 ## 進一步文件
 

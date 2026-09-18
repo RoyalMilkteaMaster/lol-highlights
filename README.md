@@ -159,15 +159,16 @@ python -m automation.run --pause-until "2026-07-18T22:00" --pause-reason "mainte
 python -m automation.run --resume-system
 ```
 
-## 本專案並不包含yolo模型以及
+## 哪些東西不在 Git 裡
 
-- `.env`
-- `**/config.yaml`
-- browser cookies
-- `deployment/db_dump_*.sql`
-- YOLO `.pt` / `.onnx` / `.engine` 權重
+| 東西 | 從哪來 |
+|---|---|
+| YOLO 模型權重（4 個 `.pt`） | GitHub Release [`models-v1`](https://github.com/RoyalMilkteaMaster/lol-highlights/releases/tag/models-v1)，`setup.ps1` 自動下載並用 `SHA256SUMS` 校驗 |
+| BGM 曲庫 | 版權考量只附一首參考曲，其餘用 `music_urls.txt` 自行下載 |
+| `.env`、`automation/config.yaml`、`highlight/config.yaml` | `setup.ps1` 從 `*.example` 產生，內含你的帳密與路徑 |
+| MySQL 資料、影片、輸出、log、瀏覽器 cookies | 本機產生 |
 
-
+這些檔案都在 `.gitignore`，不會被 commit；CI 的 `tests` workflow 也會擋下誤加的機密與大檔。
 
 ## 關於本專案
 

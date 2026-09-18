@@ -134,6 +134,23 @@ function Set-EnvValue([string]$Key, [string]$Value) {
 
 function ToSlash([string]$P) { return $P.Replace("\", "/") }
 
+function Invoke-Mysql([string]$User, [string]$Password, [string]$Sql) {
+    # 密碼走 MYSQL_PWD 環境變數：不進命令列、不觸發 mysql 的 stderr 警告
+    # （PS 5.1 在 ErrorActionPreference=Stop 下，原生指令一寫 stderr 就會被當成致命錯誤）
+    $oldPwd = $env:MYSQL_PWD
+    $oldEap = $ErrorActionPreference
+    $mysqlArgs = @("-u", $User, "-h", "127.0.0.1", "--default-character-set=utf8mb4")
+    if ($Password) { $env:MYSQL_PWD = $Password } else { Remove-Item Env:MYSQL_PWD -ErrorAction SilentlyContinue; $mysqlArgs += "--skip-password" }
+    try {
+        $ErrorActionPreference = "Continue"
+        $Sql | & $mysqlExe @mysqlArgs | Out-Null
+        return $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $oldEap
+        if ($null -ne $oldPwd) { $env:MYSQL_PWD = $oldPwd } else { Remove-Item Env:MYSQL_PWD -ErrorAction SilentlyContinue }
+    }
+}
+
 # ═════════════════════════════════════════════════════════════════════════════
 #  0. 問問題（在使用者自己的視窗問完，再提權一次）
 # ═════════════════════════════════════════════════════════════════════════════
@@ -225,7 +242,7 @@ try {
 
     $hasGpu = $false
     if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
-        $gpuName = (& nvidia-smi --query-gpu=name --format=csv,noheader 2>$null | Select-Object -First 1)
+        try { $gpuName = (& nvidia-smi --query-gpu=name --format=csv,noheader | Select-Object -First 1) } catch { $gpuName = $null }
         if ($gpuName) { $hasGpu = $true; Ok ("NVIDIA GPU: " + $gpuName) }
     }
     if (-not $hasGpu) {
@@ -275,7 +292,7 @@ try {
     # Anaconda 的 defaults channel 需要接受 ToS 才能非互動安裝（conda >= 25.x）
     $env:CONDA_PLUGINS_AUTO_ACCEPT_TOS = "yes"
     try {
-        & $conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main --channel https://repo.anaconda.com/pkgs/r --channel https://repo.anaconda.com/pkgs/msys2 2>$null | Out-Null
+        & $conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main --channel https://repo.anaconda.com/pkgs/r --channel https://repo.anaconda.com/pkgs/msys2 | Out-Null
         Write-Log "  (已接受 Anaconda defaults channel 的 Terms of Service: https://legal.anaconda.com/policies/en/)"
     } catch { }
 
@@ -309,7 +326,7 @@ try {
         Copy-Item (Join-Path $ff.DirectoryName "ffprobe.exe") (Join-Path $FfmpegDir "ffprobe.exe") -Force
         Ok "ffmpeg + ffprobe -> tools\ffmpeg"
     }
-    $ffVer = (& (Join-Path $FfmpegDir "ffmpeg.exe") -version 2>$null | Select-Object -First 1)
+    $ffVer = (& (Join-Path $FfmpegDir "ffmpeg.exe") -version | Select-Object -First 1)
     Ok $ffVer
 
     # ── 5. MySQL ──────────────────────────────────────────────────────────────
@@ -402,24 +419,20 @@ default-character-set=utf8mb4
     $dbUser = Get-EnvValue "MYSQL_USER"; if (-not $dbUser) { $dbUser = $MysqlAppUser }
     $dbPass = Get-EnvValue "MYSQL_PASSWORD"
     $dbOk = $false
-    if ($dbPass) {
-        & $mysqlExe -u $dbUser "-p$dbPass" -h 127.0.0.1 -e "SELECT 1" 2>$null | Out-Null
-        if ($LASTEXITCODE -eq 0) { $dbOk = $true; Skip ".env 內的 $dbUser 帳密可以連線，不重建帳號" }
+    if ($dbPass -and ((Invoke-Mysql $dbUser $dbPass "SELECT 1") -eq 0)) {
+        $dbOk = $true; Skip ".env 內的 $dbUser 帳密可以連線，不重建帳號"
     }
     if (-not $dbOk) {
-        $rootArgs = @("-u", "root", "--skip-password")
+        $rootPass = ""
         if (-not $freshInstall) {
-            # 既有 MySQL：先試 root 無密碼，再試 mysql_root_password.txt
-            & $mysqlExe @rootArgs -e "SELECT 1" 2>$null | Out-Null
-            if ($LASTEXITCODE -ne 0 -and (Test-Path $RootPasswordFile)) {
-                $rp = (Get-Content $RootPasswordFile -Raw).Trim()
-                $rootArgs = @("-u", "root", "-p$rp")
-                & $mysqlExe @rootArgs -e "SELECT 1" 2>$null | Out-Null
-            }
-            if ($LASTEXITCODE -ne 0) {
-                if ($NonInteractive) { Fail "既有 MySQL 的 root 密碼未知，無法建立應用程式帳號。請手動建立帳號後把 MYSQL_USER / MYSQL_PASSWORD 寫進 .env 再重跑。" }
-                $rp = Read-Host "  既有 MySQL 的 root 密碼（用來建立應用程式帳號）"
-                $rootArgs = @("-u", "root", "-p$rp")
+            # 既有 MySQL：先試 root 無密碼，再試 mysql_root_password.txt，最後問人
+            if ((Invoke-Mysql "root" "" "SELECT 1") -ne 0) {
+                if (Test-Path $RootPasswordFile) { $rootPass = (Get-Content $RootPasswordFile -Raw).Trim() }
+                if (-not $rootPass -or ((Invoke-Mysql "root" $rootPass "SELECT 1") -ne 0)) {
+                    if ($NonInteractive) { Fail "既有 MySQL 的 root 密碼未知，無法建立應用程式帳號。請手動建立帳號後把 MYSQL_USER / MYSQL_PASSWORD 寫進 .env 再重跑。" }
+                    $rootPass = Read-Host "  既有 MySQL 的 root 密碼（用來建立應用程式帳號）"
+                    if ((Invoke-Mysql "root" $rootPass "SELECT 1") -ne 0) { Fail "root 密碼不對" }
+                }
             }
         }
         $dbPass = New-RandomPassword
@@ -433,16 +446,15 @@ GRANT ALL PRIVILEGES ON ``$MysqlDbName``.* TO '$dbUser'@'localhost';
 GRANT ALL PRIVILEGES ON ``$MysqlDbName``.* TO '$dbUser'@'127.0.0.1';
 FLUSH PRIVILEGES;
 "@
-        $sql | & $mysqlExe @rootArgs --default-character-set=utf8mb4
-        if ($LASTEXITCODE -ne 0) { Fail "建立資料庫 / 帳號失敗" }
+        if ((Invoke-Mysql "root" $rootPass $sql) -ne 0) { Fail "建立資料庫 / 帳號失敗" }
         Ok "資料庫 $MysqlDbName + 帳號 $dbUser（隨機密碼，已寫入 .env）"
 
         if ($freshInstall) {
-            $rootPass = New-RandomPassword
-            "ALTER USER 'root'@'localhost' IDENTIFIED BY '$rootPass';" | & $mysqlExe -u root --skip-password
-            if ($LASTEXITCODE -ne 0) { Warn "設定 root 密碼失敗，root 目前無密碼（只有本機能連）" }
-            else {
-                [System.IO.File]::WriteAllText($RootPasswordFile, $rootPass, (New-Object System.Text.UTF8Encoding($false)))
+            $newRoot = New-RandomPassword
+            if ((Invoke-Mysql "root" "" "ALTER USER 'root'@'localhost' IDENTIFIED BY '$newRoot';") -ne 0) {
+                Warn "設定 root 密碼失敗，root 目前無密碼（只有本機能連）"
+            } else {
+                [System.IO.File]::WriteAllText($RootPasswordFile, $newRoot, (New-Object System.Text.UTF8Encoding($false)))
                 Ok "root 密碼已隨機產生，存在 deployment\mysql_root_password.txt（已 gitignore）"
             }
         }
@@ -519,7 +531,7 @@ FLUSH PRIVILEGES;
     Write-Log "============================================================" "Green"
     Write-Log ""
     Write-Log "  接下來："
-    Write-Log "   - 手動剪一場：把比賽影片放進 $vd\manual_inbox，或直接跑"
+    Write-Log ("   - 手動剪一場：把比賽影片放進 " + (ToSlash (Join-Path $vd "manual_inbox")) + "，或直接跑")
     Write-Log "       `"$envPython`" -m highlight.main `"影片路徑.mp4`" --skip-split"
     Write-Log "   - 啟動自動化（排程 + 錄影 + 剪輯 + 儀表板）：.\start.bat"
     Write-Log "   - 儀表板：http://127.0.0.1:8765"

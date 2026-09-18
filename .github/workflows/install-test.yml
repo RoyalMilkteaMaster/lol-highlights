@@ -1,0 +1,100 @@
+name: install-test
+
+# 在全新的 Windows runner 上實跑 setup.ps1，驗證「別人 clone 下來一鍵安裝」真的能過。
+# 每次要跑 20-40 分鐘（Windows 計費 2 倍），所以只在安裝相關檔案變動時才自動跑。
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - setup.ps1
+      - deployment/**
+      - .env.example
+      - "**/config.example.yaml"
+      - highlight/assets/yolo_models/SHA256SUMS
+      - .github/workflows/install-test.yml
+  pull_request:
+    paths:
+      - setup.ps1
+      - deployment/**
+      - .env.example
+      - "**/config.example.yaml"
+      - highlight/assets/yolo_models/SHA256SUMS
+      - .github/workflows/install-test.yml
+
+jobs:
+  fresh-windows-install:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}      # private repo 時 setup.ps1 用 gh 下載 Release 模型
+      KMP_DUPLICATE_LIB_OK: "TRUE"
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Simulate a clean machine (remove runner's preinstalled MySQL)
+        shell: pwsh
+        run: |
+          foreach ($svc in (Get-Service | Where-Object { $_.Name -like '*mysql*' })) {
+            Write-Host "removing preinstalled service $($svc.Name)"
+            Stop-Service $svc.Name -Force -ErrorAction SilentlyContinue
+            sc.exe delete $svc.Name | Out-Null
+          }
+          foreach ($d in @('C:\Program Files\MySQL', 'C:\ProgramData\MySQL')) {
+            if (Test-Path $d) { Remove-Item $d -Recurse -Force; Write-Host "removed $d" }
+          }
+          Write-Host "mysql on PATH: $((Get-Command mysql -ErrorAction SilentlyContinue).Source)"
+
+      # 用 Windows PowerShell 5.1（不是 pwsh 7），跟一般使用者機器一致
+      - name: Run one-click installer (non-interactive, fresh Miniconda, no GPU)
+        shell: powershell
+        run: |
+          .\setup.ps1 -NonInteractive -InstallMiniconda -SkipGpuCheck
+          if ($LASTEXITCODE -ne 0) { throw "setup.ps1 exit $LASTEXITCODE" }
+
+      - name: Show setup log
+        if: always()
+        shell: pwsh
+        run: if (Test-Path deployment\setup_log.txt) { Get-Content deployment\setup_log.txt }
+
+      - name: Verify layout (program on C:, data where we asked, .env generated)
+        shell: pwsh
+        run: |
+          $py = "$env:USERPROFILE\miniconda3\envs\lol-env\python.exe"
+          if (-not (Test-Path $py)) { throw "lol-env python missing: $py" }
+          if (-not (Test-Path 'C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqld.exe')) { throw "mysqld not in Program Files" }
+          if (-not (Test-Path (Join-Path $PWD 'data\mysql\ibdata1'))) { throw "datadir not under <project>\data\mysql" }
+          if (-not (Test-Path '.env')) { throw ".env missing" }
+          if (Select-String -Path .env -Pattern '^MYSQL_PASSWORD=$' -Quiet) { throw "MYSQL_PASSWORD empty" }
+          Get-Content .env | Where-Object { $_ -notmatch 'PASSWORD|API_KEY' }
+          (Get-Service MySQL80).Status
+
+      - name: Re-run installer (must be idempotent and fast)
+        shell: powershell
+        run: |
+          .\setup.ps1 -NonInteractive -SkipGpuCheck
+          if ($LASTEXITCODE -ne 0) { throw "second run failed: exit $LASTEXITCODE" }
+
+      - name: Crawler smoke test (real lolesports schedule -> MySQL)
+        shell: pwsh
+        run: |
+          $py = "$env:USERPROFILE\miniconda3\envs\lol-env\python.exe"
+          & $py -m automation.run --leagues LCK --days-ahead 14 --days-back 7
+          if ($LASTEXITCODE -ne 0) { throw "crawler exit $LASTEXITCODE" }
+
+      - name: Rows landed in MySQL
+        shell: pwsh
+        run: |
+          $py = "$env:USERPROFILE\miniconda3\envs\lol-env\python.exe"
+          & $py -c "from automation.db.connection import mysql_conn
+          with mysql_conn() as c:
+              with c.cursor() as cur:
+                  for t in ('leagues','teams','series','games'):
+                      cur.execute(f'SELECT COUNT(*) AS n FROM {t}'); print(t, cur.fetchone()['n'])
+                  cur.execute('SELECT @@datadir AS d'); print('datadir', cur.fetchone()['d'])"
+
+      - name: Unit + architecture tests inside lol-env
+        shell: pwsh
+        run: |
+          $py = "$env:USERPROFILE\miniconda3\envs\lol-env\python.exe"
+          & $py -m unittest discover -s automation/tests -v

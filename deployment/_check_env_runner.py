@@ -15,14 +15,25 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# 先載 .env，否則 check 3 讀不到 FFMPEG_BIN（.env 原本只在 check 5 import paths 時才順便載入）
+from dotenv import load_dotenv
+load_dotenv(PROJECT_ROOT / ".env")
+
 PASS_COUNT = 0
 FAIL_COUNT = 0
+SKIP_COUNT = 0
 RESULTS = []
+SKIP_GPU = "--skip-gpu" in sys.argv  # 沒顯卡的機器（CI / 純爬蟲）略過第 2、7 項
 
 
-def check(name: str, fn):
-    global PASS_COUNT, FAIL_COUNT
+def check(name: str, fn, needs_gpu: bool = False):
+    global PASS_COUNT, FAIL_COUNT, SKIP_COUNT
     print(f"\n[{name}]")
+    if needs_gpu and SKIP_GPU:
+        print("  SKIP: --skip-gpu")
+        RESULTS.append((name, None, "skipped"))
+        SKIP_COUNT += 1
+        return
     try:
         msg = fn()
         print(f"  OK: {msg}")
@@ -142,17 +153,18 @@ def main():
     print("=" * 55)
 
     check("1/7 Python 解譯器", check_python)
-    check("2/7 CUDA / PyTorch", check_cuda)
+    check("2/7 CUDA / PyTorch", check_cuda, needs_gpu=True)
     check("3/7 ffmpeg / ffprobe", check_ffmpeg)
     check("4/7 MySQL 連線", check_mysql)
     check("5/7 VIDEO_DIR / OUTPUT_DIR 資料夾", check_dirs)
     check("6/7 YOLO 模型檔", check_models)
-    check("7/7 YOLO GPU inference", check_yolo_gpu)
+    check("7/7 YOLO GPU inference", check_yolo_gpu, needs_gpu=True)
 
     print()
     print("=" * 55)
+    skipped = f"，略過 {SKIP_COUNT}（--skip-gpu）" if SKIP_COUNT else ""
     if FAIL_COUNT == 0:
-        print(f"  通過 {PASS_COUNT}/7 — 環境健康，可以開工")
+        print(f"  通過 {PASS_COUNT}/7{skipped} — 環境健康，可以開工")
     else:
         print(f"  通過 {PASS_COUNT}/7，失敗 {FAIL_COUNT} — 看上面 FAIL 行")
     print("=" * 55)

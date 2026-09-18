@@ -66,13 +66,10 @@ Select-String -Pattern '^(from|import)\s+dashboard\.' -Path automation/**/*.py
 
 ---
 
-## 規則 3：雙顯卡 / 軟體互斥
+## 規則 3：單顯卡 GPU 互斥
 
-單卡時 `live_split_worker` 跟 `clip_worker` 會搶 GPU：
-- **軟體互斥**：scheduler 的 `pause_when_clip_running` 機制
-- **雙卡**：`config.yaml live_split.device: 1` 讓 live_split 用副卡，clip_worker 預設 device 0
-
-`YOLODetector` / `EndGraphDetector` 都接 `device` 參數。
+`live_split_worker` 跟 `clip_worker` 會搶 GPU，靠 scheduler 的 `pause_when_clip_running` 做軟體互斥。
+預設單卡（`device: null` = cuda:0）；雙顯卡策略已廢棄，`config.yaml` 的 `live_split.device` 只是保留的選項。
 
 ---
 

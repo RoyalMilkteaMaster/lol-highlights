@@ -30,86 +30,78 @@ dashboard/ 只讀取 automation 與 highlight 的狀態
 - `automation/`：賽程、直播、錄影、排程、資料庫與 worker。
 - `dashboard/`：本機唯讀監控，預設 `http://127.0.0.1:8765/`。
 
-## 快速開始
+## 快速開始（一鍵安裝）
 
-### 1. 建立環境
-
-安裝 Anaconda、MySQL 8、Git、FFmpeg 與支援 CUDA 的 NVIDIA driver，然後在 PowerShell 執行：
+需求：Windows 10/11 x64、NVIDIA 顯卡 + 已裝 driver、約 20 GB 磁碟空間、網路。
+其他東西（Miniconda、Python 3.10 環境、ffmpeg、MySQL、YOLO 模型）腳本會自己裝。
 
 ```powershell
-git clone <your-repository-url> lol-highlights
+git clone https://github.com/RoyalMilkteaMaster/lol-highlights.git
 Set-Location .\lol-highlights
-
-conda env create -f .\deployment\environment.yml
-conda activate lol-env
+.\setup.ps1
 ```
 
-`deployment/environment.yml` 是目前已驗證的完整 Windows/CUDA 環境。若只更新 Python 套件，可使用：
+腳本會問 4 個問題（直接 Enter 用預設值），然後跳一次 UAC，接著全自動，約 20–40 分鐘：
+
+| 問題 | 預設 |
+|---|---|
+| 影片輸入資料夾 | `<專案>ideos` |
+| 剪輯輸出資料夾 | `<專案>\output` |
+| MySQL 資料目錄（主程式固定裝在 `C:\Program Files\MySQL\MySQL Server 8.0`） | `<專案>\data\mysql` |
+| YouTube API key／要不要看 LPL | 空／不要 |
+
+> **沒有 YouTube API key 和 Bilibili 登入，系統無法即時接直播自動錄影剪輯。**
+> 你只能自己下載好比賽影片、放進 `videos\manual_inbox`（或直接下指令），再由系統剪精華。
+> 兩者都可以之後再補：key 填進 `.env` 的 `YOUTUBE_API_KEY`（取得：[Google Cloud Console](https://console.cloud.google.com/apis/credentials) → 建立憑證 → API 金鑰）；LPL 只要裝 Firefox 並用它登入 bilibili.com，系統會自動讀登入 cookie。
+
+最後看到 `通過 7/7 — 環境健康，可以開工` 就完成。中途失敗：看 `deployment\setup_log.txt` 最後幾行，修正後**重跑 `.\setup.ps1`**，做過的步驟會自動跳過。
+
+安裝完會有這些東西：
+
+- `lol-env`：在 `%USERPROFILE%naconda3` 或 `miniconda3` 底下（沒 conda 的機器會裝 Miniconda）
+- MySQL 8.0：程式在 `C:\Program Files\MySQL\MySQL Server 8.0`、資料在你選的目錄、服務 `MySQL80` 開機自動啟動；應用程式帳密隨機產生寫進 `.env`，root 密碼在 `deployment\mysql_root_password.txt`
+- ffmpeg / ffprobe：`toolsfmpeg\`
+- YOLO 模型：從 GitHub Release 下載到 `highlightssets\yolo_models\`，用 `SHA256SUMS` 校驗
+- 設定檔：`.env`、`automation\config.yaml`、`highlight\config.yaml`（從對應的 `*.example` 複製）
+
+### 沒顯卡的機器（只跑爬蟲）
 
 ```powershell
-python -m pip install -r .\requirements.txt
+.\setup.ps1 -SkipGpuCheck
 ```
 
-### 2. 建立本機設定
+環境健診會略過 CUDA 與 YOLO GPU 兩項；賽程爬蟲、資料庫、儀表板照常可用，剪輯不行。
+
+### 重新健診
 
 ```powershell
-Copy-Item .\.env.example .\.env
-Copy-Item .\automation\config.example.yaml .\automation\config.yaml
-Copy-Item .\highlight\config.example.yaml .\highlight\config.yaml
+deployment\check_env.bat              # 沒顯卡加 --skip-gpu
 ```
 
-編輯 `.env`，至少設定 MySQL 帳密。資料目錄與 FFmpeg 位置也由 `.env` 控制：
+### BGM
 
-```dotenv
-VIDEO_DIR=C:/lol-highlights-data/videos
-OUTPUT_DIR=C:/lol-highlights-data/output
-FFMPEG_BIN=
-```
-
-`FFMPEG_BIN` 留空代表 `ffmpeg` 與 `ffprobe` 已在 `PATH`。
-
-### 3. 建立資料庫
-
-先用 MySQL 管理者帳號授權應用程式帳號：
-
-```sql
-CREATE USER 'lol_crawler'@'localhost' IDENTIFIED BY 'your-password';
-GRANT ALL ON lol_highlight.* TO 'lol_crawler'@'localhost';
-FLUSH PRIVILEGES;
-```
-
-讓 `.env` 中的帳密與上面一致，再執行：
+音樂檔因避免版權問題不進 Git，`highlightssets\music` 只附一首參考曲（NCS 公開授權）。
+若要將精華加上完整曲庫，請用 `highlight/assets/music_urls.txt` 自行下載：
 
 ```powershell
-$env:KMP_DUPLICATE_LIB_OK = "TRUE"
-python -m automation.run --init-db
-python -m automation.run --migrate
+python -m highlight.rendering.music_library download --urls .\highlightssets\music_urls.txt --out .\highlightssets\music
+python -m highlight.rendering.music_library scan --dir .\highlightssets\music
 ```
 
-### 4. 安裝模型與音樂
+使用音樂前請自行確認每首曲目的授權與署名要求。
 
-四個 YOLO 權重不放進 Git history。檔名、大小與 SHA-256 位於 [`highlight/assets/yolo_models/README.md`](highlight/assets/yolo_models/README.md)。確認有再散布權後，從專案的 GitHub Release 下載並放進該目錄。
+<details>
+<summary>手動安裝（不用 setup.ps1）</summary>
 
-音樂檔因避免版權問題，同樣不進 Git。
-若要將精華加上音樂，請自行至 `highlight/assets/music_urls.txt` 建立本機音樂庫：
+1. 安裝 Anaconda/Miniconda、MySQL 8、FFmpeg、NVIDIA driver。
+2. `conda env create -f .\deployment\environment.yml`
+3. 複製 `.env.example` → `.env`、`automation/config.example.yaml` → `automation/config.yaml`、`highlight/config.example.yaml` → `highlight/config.yaml`，填 `.env` 的 MySQL 帳密與路徑。
+4. MySQL 建帳號：`CREATE USER 'lol_app'@'localhost' IDENTIFIED BY '...'; GRANT ALL ON lol_highlight.* TO 'lol_app'@'localhost';`
+5. `python -m automation.run --init-db` 然後 `python -m automation.run --migrate`
+6. 從 GitHub Release `models-v1` 下載四個 `.pt` 到 `highlight/assets/yolo_models/`，對照 `SHA256SUMS`。
+7. `deployment\check_env.bat` 看到 7/7。
 
-```powershell
-python -m highlight.rendering.music_library download `
-  --urls .\highlight\assets\music_urls.txt `
-  --out .\highlight\assets\music
-
-python -m highlight.rendering.music_library scan `
-  --dir .\highlight\assets\music
-```
-
-### 5. 驗證
-
-```powershell
-python -m unittest discover -s .\automation\tests -v
-python .\deployment\_check_env_runner.py
-```
-
-環境檢查會驗證 Python、CUDA/PyTorch、FFmpeg、MySQL、資料目錄、四個 YOLO 模型與 GPU inference。
+</details>
 
 ## 使用方式
 

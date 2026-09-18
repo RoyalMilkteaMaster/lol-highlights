@@ -58,3 +58,9 @@ automation/logs/
 .vscode/
 reports/
 deployment/SETUP_NEWPC.md
+
+# ── setup.ps1 產物（本機專屬，不進 git） ─────────────────────
+deployment/setup_log.txt
+deployment/mysql_root_password.txt
+data/
+tools/ffmpeg/

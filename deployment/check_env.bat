@@ -1,12 +1,12 @@
 @echo off
 REM ============================================================
-REM  check_env.bat - LoL Highlights 環境健診（7 項）
+REM  check_env.bat - LoL Highlights environment health check
 REM
-REM  用法：搬機後 / 環境怪怪 / Windows Update 後跑一次
-REM    cd /d "C:\Users\<user>\Claude code\lol-highlights"
-REM    deployment\check_env.bat
+REM  Usage: run after setup / after moving machines / when things look off
+REM    cd /d <project-directory>
+REM    deployment\check_env.bat [--skip-gpu]
 REM
-REM  實際健診邏輯在 deployment\_check_env_runner.py（避開 cmd 引號地獄）
+REM  All logic lives in deployment\_check_env_runner.py (keep this file ASCII).
 REM ============================================================
 
 chcp 65001 >nul 2>&1
@@ -15,23 +15,29 @@ set "KMP_DUPLICATE_LIB_OK=TRUE"
 
 cd /d "%~dp0\.."
 
-REM 找 lol-env Python — 先試舊機路徑，找不到再 scan C:\Users\
-set "PY_EXE=%USERPROFILE%\anaconda3\envs\lol-env\python.exe"
-if not exist "%PY_EXE%" (
-    for /d %%U in ("C:\Users\*") do (
-        if exist "%%U\anaconda3\envs\lol-env\python.exe" set "PY_EXE=%%U\anaconda3\envs\lol-env\python.exe"
+REM 1) LOL_ENV_PYTHON from .env (written by setup.ps1)
+set "PY_EXE="
+if exist ".env" (
+    for /f "usebackq tokens=1,* delims==" %%A in (".env") do (
+        if /i "%%A"=="LOL_ENV_PYTHON" set "PY_EXE=%%B"
+    )
+)
+if defined PY_EXE if exist "%PY_EXE%" goto :run
+
+REM 2) common conda locations
+for %%R in ("%USERPROFILE%\anaconda3" "%USERPROFILE%\miniconda3" "%ProgramData%\anaconda3" "%ProgramData%\miniconda3") do (
+    if exist "%%~R\envs\lol-env\python.exe" (
+        set "PY_EXE=%%~R\envs\lol-env\python.exe"
+        goto :run
     )
 )
 
-if not exist "%PY_EXE%" (
-    echo.
-    echo FAIL: 找不到 lol-env Python。
-    echo   試過：%%USERPROFILE%%\anaconda3\envs\lol-env\python.exe
-    echo   還有：C:\Users\*\anaconda3\envs\lol-env\python.exe
-    echo.
-    echo 補救：在新機跑 conda env create -f deployment\environment.yml
-    exit /b 1
-)
+echo.
+echo FAIL: lol-env python.exe not found.
+echo   Looked at: .env LOL_ENV_PYTHON, %%USERPROFILE%%\anaconda3, %%USERPROFILE%%\miniconda3, %%ProgramData%%\anaconda3, %%ProgramData%%\miniconda3
+echo   Fix: run .\setup.ps1 (or: conda env create -f deployment\environment.yml)
+exit /b 1
 
-"%PY_EXE%" "%~dp0\_check_env_runner.py"
+:run
+"%PY_EXE%" "%~dp0\_check_env_runner.py" %*
 exit /b %errorlevel%

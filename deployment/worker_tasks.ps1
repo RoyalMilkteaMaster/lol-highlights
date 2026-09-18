@@ -7,8 +7,26 @@ param(
 $ErrorActionPreference = "Stop"
 
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
-$pythonwPath = Join-Path $env:USERPROFILE "anaconda3\envs\lol-env\pythonw.exe"
-$pythonPath = Join-Path $env:USERPROFILE "anaconda3\envs\lol-env\python.exe"
+
+function Resolve-LolEnvPython {
+    # Order: .env LOL_ENV_PYTHON (written by setup.ps1) -> common conda roots
+    $envFile = Join-Path $projectRoot ".env"
+    if (Test-Path -LiteralPath $envFile) {
+        $line = Get-Content -LiteralPath $envFile | Where-Object { $_ -match '^\s*LOL_ENV_PYTHON\s*=' } | Select-Object -First 1
+        if ($line) {
+            $candidate = ($line -split "=", 2)[1].Trim().Trim('"')
+            if ($candidate -and (Test-Path -LiteralPath $candidate -PathType Leaf)) { return $candidate }
+        }
+    }
+    foreach ($root in @("$env:USERPROFILE\anaconda3", "$env:USERPROFILE\miniconda3", "$env:ProgramData\anaconda3", "$env:ProgramData\miniconda3")) {
+        $candidate = Join-Path $root "envs\lol-env\python.exe"
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
+    }
+    throw "lol-env python.exe not found. Run .\setup.ps1 first."
+}
+
+$pythonPath = Resolve-LolEnvPython
+$pythonwPath = Join-Path (Split-Path -Parent $pythonPath) "pythonw.exe"
 $script:ExitCode = 0
 $taskDefinitions = @(
     [pscustomobject]@{ Name = "LoLHighlights-Scheduler"; Arguments = "-m automation.run --schedule" },
